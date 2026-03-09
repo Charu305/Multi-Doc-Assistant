@@ -21,7 +21,7 @@ Question:
 """
 
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
+        model="gemini-3.1-flash-lite-preview",
         temperature=0,
         streaming=True
     )
