@@ -1,9 +1,9 @@
 from fastapi import FastAPI, UploadFile, BackgroundTasks
 import os
-from .config import DATA_PATH
-from .pdf_ingestion import process_pdf
-from .rag import ask_question
-from .stream import stream_response
+from config import DATA_PATH
+from pdf_ingestion import process_pdf
+from rag import ask_question
+from stream import stream_response
 
 app = FastAPI(title="Multi Document Assistant")
 

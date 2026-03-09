@@ -1,6 +1,6 @@
 from sse_starlette.sse import EventSourceResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
-from .vector_db import get_db
+from vector_db import get_db
 
 
 async def stream_answer(question: str):
