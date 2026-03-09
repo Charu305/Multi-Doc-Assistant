@@ -9,6 +9,9 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Download HuggingFace model during build
+RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L6-v2')"
+
 COPY . .
 
 RUN mkdir -p data chroma_db semantic_cache_db
