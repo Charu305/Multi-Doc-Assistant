@@ -155,6 +155,7 @@ BAD
         context = format_doc(docs)
 
         final_answer = chain.invoke({
+            "memory": memory_context,
             "context": context,
             "question": question
         })
