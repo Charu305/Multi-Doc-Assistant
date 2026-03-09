@@ -1,4 +1,4 @@
-from .llm import get_llm
+from app.llm import get_llm
 
 def classify_question(question):
 
