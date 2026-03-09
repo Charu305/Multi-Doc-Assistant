@@ -1,6 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from app.llm import get_llm
+from app.llm import get_llm,get_text_response
 from app.semantic_cache import search_cache, save_cache
 from app.vector_db import get_retriever,get_db,rerank_documents
 from app.planner import classify_question
@@ -135,7 +135,7 @@ PARTIAL
 BAD
 """
 
-    reflection = llm.invoke(reflection_prompt).content.strip()
+    reflection = get_text_response(llm, reflection_prompt)
 
     MAX_RETRY = 1
 
@@ -175,7 +175,7 @@ Rate confidence from 0 to 1.
 
 Only return number.
 """
-    confidence = llm.invoke(confidence_prompt).content.strip()
+    confidence = get_text_response(llm, confidence_prompt)
     print('Added to memory')
     add_to_memory(question, final_answer)
     print('Updated to memory')

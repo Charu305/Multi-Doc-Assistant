@@ -1,4 +1,4 @@
-from app.llm import get_llm
+from app.llm import get_llm,get_text_response
 
 def classify_question(question):
 
@@ -18,4 +18,4 @@ Answer only category.
 
     llm = get_llm()
 
-    return llm.invoke(prompt).content.strip()
+    return get_text_response(llm, prompt)
