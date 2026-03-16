@@ -1,6 +1,6 @@
 # 📚 Multi-Doc Assistant — RAG with Persistent User Memory
 
-> **A multi-document RAG application** that lets users upload and query multiple documents simultaneously — with **persistent user memory** that remembers preferences, past interactions, and context across sessions, containerised with Docker for deployment.
+> **A multi-document RAG application** that lets users upload and query multiple documents simultaneously — with **persistent user memory** that remembers preferences, past interactions, and context across sessions, served via a **FastAPI backend** and containerised with Docker for deployment.
 
 ---
 
@@ -35,9 +35,18 @@ User Session
             │
             ▼
 ┌──────────────────────────────────────────┐
-│         app/  (Application Layer)        │
-│  Streamlit UI — upload docs, chat,       │
-│  view memory, manage session             │
+│         Client (Browser / API Client)    │
+│  Sends requests to FastAPI endpoints     │
+│  for doc upload, querying, memory       │
+└─────────┬────────────────────────────────┘
+          │  HTTP requests
+          ▼
+┌──────────────────────────────────────────┐
+│         FastAPI Backend                  │
+│  POST /upload  — ingest documents        │
+│  POST /query   — answer user question    │
+│  GET  /memory  — retrieve user memory    │
+│  PUT  /memory  — update user memory      │
 └─────────┬────────────────────────────────┘
           │
           ▼
@@ -83,7 +92,8 @@ User Session
 Multi-Doc-Assistant/
 │
 ├── app/                    # Core application module
-│   ├── main.py             # App entry point — Streamlit UI
+│   ├── main.py             # FastAPI app — defines all API routes and endpoints
+│   ├── api.py              # FastAPI app — defines all REST endpoints
 │   ├── rag_pipeline.py     # Multi-document RAG logic
 │   ├── memory.py           # Memory read/write operations
 │   └── utils.py            # PDF parsing, chunking, embedding helpers
@@ -189,13 +199,57 @@ Answer:
 
 This enables the LLM to give genuinely personalised, context-aware responses — not just stateless retrieval answers.
 
-### 4. Modular Application Structure (`app/`)
+### 4. FastAPI Backend (`app/api.py`)
+
+The application exposes a **FastAPI REST API** — decoupling the backend logic from any frontend, so any client (browser, mobile app, CLI, or another service) can call the API.
+
+**Key endpoints:**
+
+```python
+from fastapi import FastAPI, UploadFile
+app = FastAPI()
+
+@app.post("/upload")
+async def upload_document(file: UploadFile):
+    """Ingest a new PDF — parse, chunk, embed, and add to vector store"""
+    ...
+
+@app.post("/query")
+async def query_documents(question: str, user_id: str):
+    """Retrieve relevant chunks + memory, generate LLM answer"""
+    ...
+
+@app.get("/memory/{user_id}")
+async def get_memory(user_id: str):
+    """Return current user memory from user_memory.json"""
+    ...
+
+@app.put("/memory/{user_id}")
+async def update_memory(user_id: str, interaction: dict):
+    """Append new interaction to user memory"""
+    ...
+```
+
+**Why FastAPI as the serving layer?**
+
+| Direct function call | FastAPI backend |
+|---|---|
+| UI and logic tightly coupled | Clean separation — UI calls API endpoints |
+| Hard to expose to other frontends | Any client (mobile, web, CLI) can call the API |
+| No request validation | FastAPI provides automatic request/response validation via Pydantic |
+| No async support | FastAPI is fully async — handles concurrent document uploads efficiently |
+| No API documentation | FastAPI auto-generates interactive `/docs` (Swagger UI) |
+
+**Auto-generated API docs** — FastAPI automatically serves interactive documentation at `http://localhost:8000/docs`, letting you test every endpoint directly in the browser without writing a frontend.
+
+### 5. Modular Application Structure (`app/`)
 
 The `app/` package separates concerns cleanly across modules:
 
 | Module | Responsibility |
 |---|---|
-| `main.py` | Streamlit UI — file uploads, chat interface, session management |
+| `main.py` | FastAPI app entry point — registers routes, starts the server |
+| `api.py` | FastAPI backend — REST endpoints for upload, query, and memory operations |
 | `rag_pipeline.py` | Document processing, vector indexing, retrieval logic |
 | `memory.py` | Read/write `user_memory.json`, format memory for prompt injection |
 | `utils.py` | PDF parsing, text chunking, embedding generation |
@@ -210,8 +264,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
-EXPOSE 8501
-CMD ["streamlit", "run", "app/main.py", "--server.port=8501"]
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 The `user_memory.json` file is persisted via a **Docker volume mount** in production — ensuring memory survives container restarts.
@@ -266,7 +320,7 @@ Bot:   The sick leave policy (HR_Policy.pdf, Section 4) is separate
 | Embeddings | Sentence Transformers / OpenAI Embeddings |
 | Memory Store | JSON (`user_memory.json`) |
 | PDF Parsing | pdfplumber / PyPDF2 |
-| Web UI | Streamlit |
+| API Framework | FastAPI + Uvicorn |
 | Containerisation | Docker |
 
 ---
@@ -282,8 +336,9 @@ cd Multi-Doc-Assistant
 pip install -r requirements.txt
 export OPENAI_API_KEY="your-api-key"
 
-streamlit run app/main.py
-# Open http://localhost:8501
+uvicorn app.main:app --reload --port 8000
+# API docs available at http://localhost:8000/docs
+# Send requests via curl, Postman, or any HTTP client
 ```
 
 ### Option B — Docker
@@ -292,15 +347,30 @@ streamlit run app/main.py
 docker build -t multi-doc-assistant .
 
 # Mount user_memory.json as a volume so memory persists across container restarts
-docker run -p 8501:8501 \
+docker run -p 8000:8000 \
   -e OPENAI_API_KEY="your-api-key" \
   -v $(pwd)/user_memory.json:/app/user_memory.json \
   multi-doc-assistant
+# API docs at http://localhost:8000/docs
 ```
 
----
+### Option C — Example API Calls
 
-## 💡 Key Learnings & Takeaways
+```bash
+# Upload a document
+curl -X POST "http://localhost:8000/upload" \
+  -F "file=@HR_Policy.pdf"
+
+# Ask a question
+curl -X POST "http://localhost:8000/query" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is the remote work policy?", "user_id": "charu_001"}'
+
+# Retrieve user memory
+curl "http://localhost:8000/memory/charu_001"
+```
+
+Or open **`http://localhost:8000/docs`** for FastAPI's auto-generated interactive Swagger UI to test all endpoints directly in the browser.
 
 - **Document metadata tagging is what makes multi-doc RAG work** — storing the source filename and page number with every chunk enables both cross-document retrieval and transparent source attribution. Without metadata, you get answers but no way to trace where they came from.
 - **Persistent memory transforms a tool into an assistant** — the difference between a stateless search tool and a true assistant is memory. `user_memory.json` is a simple but effective implementation of this — storing it as JSON means it's human-readable, debuggable, and portable without a database.
