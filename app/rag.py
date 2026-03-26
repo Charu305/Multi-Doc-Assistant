@@ -8,7 +8,17 @@ from app.memory import get_memory, add_to_memory
 from app.user_memory import update_memory
 
 def format_doc(docs):
-    return "\n\n".join([d.page_content for d in docs])
+    formatted = []
+
+    for d in docs:
+        source = d.metadata.get("source", "unknown")
+        page = d.metadata.get("page", "N/A")
+
+        formatted.append(
+            f"[Source: {source}, Page: {page}]\n{d.page_content}"
+        )
+
+    return "\n\n".join(formatted)
 
 
 def ask_question(question:str):
@@ -188,5 +198,12 @@ Only return number.
         print('cache saved')
     else:
         print("Not caching failed answer")
+    sources = [
+    {
+        "file": d.metadata.get("source"),
+        "page": d.metadata.get("page")
+    }
+    for d in docs
+]
 
-    return {"answer": final_answer, "confidence": confidence, "cached": False}
+    return {"answer": final_answer, "confidence": confidence, "sources": sources, "cached": False}
